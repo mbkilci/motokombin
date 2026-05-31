@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 pydantic
+requests
 beautifulsoup4
 Pillow
 rembg[cpu]
 numpy
 opencv-python-headless
-curl_cffi
