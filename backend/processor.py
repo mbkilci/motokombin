@@ -1,21 +1,22 @@
-from rembg import remove, new_session
-import os
+# backend/processor.py
 
-# Session'ı en başta BOŞ bırakıyoruz ki sunucu açılırken indirme yapıp kilitlenmesin.
 session = None
 
-def get_session():
-    global session
-    if session is None:
-        print("Yapay zeka modeli ilk kez yükleniyor (u2netp)...")
-        # İlk görsel isteği geldiğinde sadece 4MB olan hafifletilmiş modeli indirir ve hafızada tutar.
-        session = new_session("u2netp")
-    return session
-
 def process_gear_image(input_path, output_path):
+    global session
+    
+    # 1. Kütüphaneyi en tepede değil, İÇERİDE çağırıyoruz. 
+    # Bu sayede sunucu açılırken buralar hiç okunmaz, port anında açılır ve Render fişi çekmez.
+    from rembg import remove, new_session
+    
+    # 2. Sadece 4 MB olan hafifletilmiş 'u2netp' modelini zorunlu kılıyoruz.
+    if session is None:
+        print("Hafif model (u2netp) ilk kez yukleniyor...")
+        session = new_session("u2netp")
+        
+    # 3. Arka planı sil ve kaydet
     with open(input_path, 'rb') as i:
         with open(output_path, 'wb') as o:
             input_data = i.read()
-            # Arka plan silme işlemine bu tembel session'ı gönderiyoruz
-            output_data = remove(input_data, session=get_session())
+            output_data = remove(input_data, session=session)
             o.write(output_data)
