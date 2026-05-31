@@ -1,0 +1,6 @@
+venv/
+node_modules/
+__pycache__/
+temp_downloads/
+final_outputs/
+.DS_Store
