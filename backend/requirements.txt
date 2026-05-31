@@ -1,11 +1,9 @@
 fastapi
 uvicorn
 pydantic
-requests
 beautifulsoup4
-selenium
-webdriver-manager
 Pillow
 rembg[cpu]
 numpy
 opencv-python-headless
+cloudscraper
