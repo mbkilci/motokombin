@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+requests
+beautifulsoup4
+selenium
+webdriver-manager
+Pillow
+rembg
+numpy
+opencv-python-headless
