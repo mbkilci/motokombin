@@ -54,5 +54,5 @@ async def process_gear(request: GearRequest):
     return {
         "success": True,
         "price": data.get("price"),
-        "image_url": f"http://127.0.0.1:8000/images/aligned_{unique_id}.png"
+        "image_url": f"https://motokombin-api.onrender.com/images/aligned_{unique_id}.png"
     }

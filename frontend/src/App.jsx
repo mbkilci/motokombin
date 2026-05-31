@@ -39,7 +39,7 @@ function App() {
 
     try {
       // Doğrudan ana API'ye gidiyoruz (Eski hızlı sürüm)
-      const response = await fetch('http://127.0.0.1:8000/api/process-gear', {
+      const response = await fetch('https://motokombin-api.onrender.com/api/process-gear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: targetLink, type: targetSlot })
