@@ -3,71 +3,52 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_product_info(url):
-    print(f"Scraping başlatılıyor (3 Katmanlı Bypass Modu): {url}")
+    print(f"İşlem başlatılıyor: {url}")
     
-    # 1. YÖNTEM: Googlebot (SEO kılığı - Siteler Google'ı engellemekten korkar)
+    # 0. YÖNTEM: DİREKT RESİM LİNKİ KONTROLÜ (Nihai Bypass)
+    # Kullanıcı site linki yerine direkt resim adresini (sağ tık -> resim adresini kopyala) 
+    # yapıştırdıysa, hiçbir korumaya takılmadan direkt resmi alırız!
+    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
+        print("Direkt resim linki algılandı! Site engelleri tamamen atlanıyor.")
+        return {"image_url": url, "price": "Fiyat Yok"}
+
+    # 1. YÖNTEM: Microlink.io API (Çok güçlü ve engellenmesi zor bir okuyucu)
     try:
-        print("Yöntem 1: Googlebot Kılığı deneniyor...")
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+        print("Yöntem 1: Microlink API deneniyor...")
+        res = requests.get(f"https://api.microlink.io?url={url}", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get("data") and data["data"].get("image"):
+                img_url = data["data"]["image"]["url"]
+                print(f"Başarılı! Microlink Görseli: {img_url[:30]}...")
+                return {"image_url": img_url, "price": "Bulunamadı"}
+    except Exception as e:
+        print(f"Microlink başarısız: {e}")
+
+    # 2. YÖNTEM: Klasik Kazıma (Güvenliği düşük siteler için)
+    try:
+        print("Yöntem 2: Standart İstek deneniyor...")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200 and "cloudflare" not in res.text.lower() and "just a moment" not in res.text.lower():
+        if res.status_code == 200 and "cloudflare" not in res.text.lower():
             soup = BeautifulSoup(res.content, 'html.parser')
-            result = parse_html(soup)
-            if result:
-                return result
+            
+            image_url = None
+            price = "Bulunamadı"
+
+            og_image = soup.find('meta', property='og:image')
+            if og_image and og_image.get('content'):
+                image_url = og_image['content']
+            
+            price_tag = soup.select_one('.product-price, .price, .current-price')
+            if price_tag:
+                price = re.sub(r'[^\d.,]', '', price_tag.text.strip())
+
+            if image_url:
+                print(f"Başarılı! Standart Görsel: {image_url[:30]}...")
+                return {"image_url": image_url, "price": price}
     except Exception as e:
-        print(f"Yöntem 1 Başarısız: {e}")
+        print(f"Standart yöntem başarısız: {e}")
 
-    # 2. YÖNTEM: Dub.co Metatags API (Çok Güçlü, Güvenilir Sistem)
-    try:
-        print("Yöntem 2: Özel Metatag API deneniyor...")
-        api_url = f"https://api.dub.co/metatags?url={url}"
-        res = requests.get(api_url, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            if data.get("image"):
-                print(f"Başarılı! API'den Görsel bulundu: {data['image'][:30]}...")
-                # Bu API fiyat döndürmez ama görseli 100% garanti getirir.
-                return {"image_url": data["image"], "price": "Bulunamadı"}
-    except Exception as e:
-        print(f"Yöntem 2 Başarısız: {e}")
-
-    # 3. YÖNTEM: AllOrigins JSON API (Timeout sorununu aşan JSON sürümü)
-    try:
-        print("Yöntem 3: AllOrigins JSON deneniyor...")
-        res = requests.get(f"https://api.allorigins.win/get?url={url}", timeout=15)
-        if res.status_code == 200:
-            data = res.json()
-            if data.get("contents") and "cloudflare" not in data.get("contents").lower():
-                soup = BeautifulSoup(data["contents"], 'html.parser')
-                result = parse_html(soup)
-                if result:
-                    return result
-    except Exception as e:
-        print(f"Yöntem 3 Başarısız: {e}")
-
-    print("Tüm bypass yöntemleri başarısız oldu. Site bir kale gibi korunuyor.")
-    return None
-
-def parse_html(soup):
-    image_url = None
-    price = "Bulunamadı"
-
-    og_image = soup.find('meta', property='og:image')
-    if og_image and og_image.get('content'):
-        image_url = og_image['content']
-        
-    if not image_url:
-        img_tag = soup.select_one('.product-image img, #product-image, .main-image img')
-        if img_tag and img_tag.get('src'):
-            image_url = img_tag['src']
-
-    price_tag = soup.select_one('.product-price, .price, #product-price, span[itemprop="price"], .current-price')
-    if price_tag:
-         price_text = price_tag.text.strip()
-         price = re.sub(r'[^\d.,]', '', price_text)
-
-    if image_url:
-        print(f"Başarılı! Görsel ayrıştırıldı: {image_url[:30]}... Fiyat: {price}")
-        return {"image_url": image_url, "price": price}
+    print("Tüm yöntemler başarısız oldu. Lütfen ürün linki yerine DİREKT RESİM LİNKİ kullanın.")
     return None
