@@ -1,90 +1,50 @@
 import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
-import time
+import re
 
-def scrape_fast(url):
-    """Hızlı HTTP isteği ile veriyi çeker (0.2-0.5 sn)"""
+def scrape_product_info(url):
+    print(f"Scraping başlatılıyor (Hızlı Mod): {url}")
+    
+    # Gerçek bir tarayıcı gibi davranarak sitenin engellemesini önlüyoruz
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
     }
+    
     try:
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code != 200:
-            return None
-            
-        soup = BeautifulSoup(response.text, 'html.parser')
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Sitenin kapak fotoğrafını (Kusursuz kalite) çeker
-        img_tag = soup.find("meta", property="og:image")
-        if not img_tag:
-            return None
-        image_url = img_tag.get("content")
-        
-        # Fiyatı bul
+        image_url = None
         price = "Bulunamadı"
-        price_tag = soup.find("meta", property="product:price:amount")
+
+        # Görseli Bulma (Sitenin yapısına göre genel bir arama)
+        # 1. Yöntem: Meta etiketleri (En güveniliri)
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            image_url = og_image['content']
+            
+        # 2. Yöntem: Sitedeki büyük ürün görselleri (Eğer og:image yoksa)
+        if not image_url:
+            img_tag = soup.select_one('.product-image img, #product-image, .main-image img')
+            if img_tag and img_tag.get('src'):
+                image_url = img_tag['src']
+
+        # Fiyatı Bulma
+        price_tag = soup.select_one('.product-price, .price, #product-price, span[itemprop="price"]')
         if price_tag:
-            price = price_tag.get("content")
-        else:
-            common_selectors = [".product-price", ".price-value", "span[itemprop='price']", ".current-price"]
-            for sel in common_selectors:
-                elem = soup.select_one(sel)
-                if elem and elem.text.strip():
-                    price = elem.text.strip()
-                    break
-                    
+             price = price_tag.text.strip()
+             # Fiyatı temizle (Sadece rakamları ve virgülü/noktayı bırak)
+             price = re.sub(r'[^\d.,]', '', price)
+
+        if not image_url:
+             print("Hata: Görsel bulunamadı.")
+             return None
+
+        print(f"Başarılı! Görsel: {image_url[:30]}... Fiyat: {price}")
         return {"image_url": image_url, "price": price}
+
     except Exception as e:
-        print(f"Hızlı çekim hatası: {e}")
+        print(f"Scraping Hatası: {e}")
         return None
-
-def scrape_with_selenium(url):
-    """Selenium yedeği - Işık hızı başarısız olursa çalışır."""
-    options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    driver.get(url)
-    time.sleep(1.5) # Bekleme süresi minimal
-    
-    result = {"image_url": None, "price": None}
-    
-    try:
-        img_element = driver.find_element(By.XPATH, "//meta[@property='og:image']")
-        result["image_url"] = img_element.get_attribute("content")
-        
-        try:
-            price_element = driver.find_element(By.XPATH, "//meta[@property='product:price:amount']")
-            result["price"] = price_element.get_attribute("content")
-        except:
-            pass
-                    
-    except Exception as e:
-        print("Selenium görseli bulamadı.", e)
-        
-    driver.quit()
-    return result
-
-def scrape_product_info(url, _=None): # gear_type parametresini artık kullanmıyoruz
-    # Eğer direkt görsel linkiyse DOM tarama, direkt al
-    clean_url = url.lower().split('?')[0]
-    if clean_url.endswith(('.png', '.jpg', '.jpeg', '.webp')):
-        print("📸 Direkt görsel linki algılandı! Işık hızında işlem yapılıyor.")
-        return {"image_url": url, "price": "0 TL"}
-    
-    print(f"\n[{url}] adresine gidiliyor...")
-    
-    fast_data = scrape_fast(url)
-    if fast_data and fast_data.get("image_url"):
-        print("⚡ Veri BeautifulSoup ile ışık hızında çekildi!")
-        return fast_data
-        
-    print("⏳ JS render gerekli, Selenium başlatılıyor...")
-    return scrape_with_selenium(url)
