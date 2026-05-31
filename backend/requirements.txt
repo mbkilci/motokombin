@@ -6,6 +6,6 @@ beautifulsoup4
 selenium
 webdriver-manager
 Pillow
-rembg
+rembg[cpu]
 numpy
 opencv-python-headless
